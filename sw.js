@@ -1,8 +1,7 @@
-const CACHE_NAME = 'isukiza-v1';
+const CACHE_NAME = 'isukiza-v2';
 const ASSETS = [
   '/mis-inversiones/',
   '/mis-inversiones/index.html',
-  '/mis-inversiones/app.js',
   '/mis-inversiones/styles.css',
   '/mis-inversiones/manifest.json',
   'https://cdn.tailwindcss.com',
