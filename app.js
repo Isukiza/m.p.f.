@@ -32,10 +32,9 @@ const Config = {
         { key: 'efectivo', label: 'Efectivo', color: '#06b6d4' }
     ],
     PROXIES: [
-        url => `https://shrill-violet-57df.george-bouza.workers.dev/?url=${encodeURIComponent(url)}`,
         url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-        url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-        url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+        url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+        url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
     ]
 };
 
@@ -55,35 +54,25 @@ const Cloud = {
             return bytes.toString(CryptoJS.enc.Utf8);
         } catch(e) { return null; }
     },
-
     saveToken(token) {
         if (!State.masterKey) return;
         const enc = CryptoJS.AES.encrypt(token, State.masterKey).toString();
         localStorage.setItem("isukiza_cloud_token", enc);
     },
-
     promptToken() {
         const token = prompt("Introduce tu GitHub Personal Access Token:\n(Se guardará cifrado, no volverá a pedírsete)");
         if (token && token.startsWith("ghp_")) {
             this.saveToken(token.trim());
             UI.showToast("✓ Token guardado — sincronización activada");
             return token.trim();
-        } else if (token) {
-            alert("Token no válido. Debe empezar por ghp_");
-        }
+        } else if (token) { alert("Token no válido. Debe empezar por ghp_"); }
         return null;
     },
-
     _headers() {
         const token = this.getToken();
         if (!token) return null;
-        return {
-            "Authorization": `token ${token}`,
-            "Content-Type":  "application/json",
-            "User-Agent":    "isukiza-app"
-        };
+        return { "Authorization": `token ${token}`, "Content-Type": "application/json", "User-Agent": "isukiza-app" };
     },
-
     async getSHA() {
         try {
             const headers = this._headers();
@@ -94,14 +83,9 @@ const Cloud = {
             return d.sha;
         } catch(e) { return null; }
     },
-
     async guardar() {
         let headers = this._headers();
-        if (!headers) {
-            const token = this.promptToken();
-            if (!token) return;
-            headers = this._headers();
-        }
+        if (!headers) { const token = this.promptToken(); if (!token) return; headers = this._headers(); }
         UI.setStatus("Guardando en nube...", "amber");
         try {
             const d = Storage._load("isukiza_v4_enc") || {};
@@ -117,9 +101,9 @@ const Cloud = {
                 ef_kutxa: d.ef_kutxa, ef_myinvestor: d.ef_myinvestor,
                 ef_traderepublic: d.ef_traderepublic, ef_casa: d.ef_casa
             };
-            const sha     = await this.getSHA();
-            const ct      = btoa(unescape(encodeURIComponent(JSON.stringify(exportData, null, 2))));
-            const body    = { message: `Sync ${new Date().toLocaleString("es-ES")}`, content: ct };
+            const sha  = await this.getSHA();
+            const ct   = btoa(unescape(encodeURIComponent(JSON.stringify(exportData, null, 2))));
+            const body = { message: `Sync ${new Date().toLocaleString("es-ES")}`, content: ct };
             if (sha) body.sha = sha;
             const r = await fetch(`https://api.github.com/repos/${this.REPO}/contents/${this.FILE}`, {
                 method: "PUT", headers, body: JSON.stringify(body)
@@ -135,14 +119,9 @@ const Cloud = {
             UI.showToast("⚠️ Error de sincronización", "#7c2d12", "#f97316");
         }
     },
-
     async cargar() {
         let headers = this._headers();
-        if (!headers) {
-            const token = this.promptToken();
-            if (!token) return;
-            headers = this._headers();
-        }
+        if (!headers) { const token = this.promptToken(); if (!token) return; headers = this._headers(); }
         UI.setStatus("Cargando desde nube...", "amber");
         try {
             const r = await fetch(`https://api.github.com/repos/${this.REPO}/contents/${this.FILE}?t=${Date.now()}`, { headers });
@@ -160,7 +139,6 @@ const Cloud = {
             UI.showToast("⚠️ Error al cargar", "#7c2d12", "#f97316");
         }
     },
-
     _updateSyncBadge() {
         const el = document.getElementById("syncBadge");
         if (!el) return;
@@ -171,7 +149,6 @@ const Cloud = {
             el.style.display = "inline";
         }
     },
-
     async autoSync() {
         const headers = this._headers();
         if (!headers) return;
@@ -263,8 +240,9 @@ const Storage = {
             ef_abanca:    document.getElementById("ef_abanca").value,
             ef_santander: document.getElementById("ef_santander").value,
             ef_kutxa:     document.getElementById("ef_kutxa").value,
-            ef_myinvestor:document.getElementById("ef_myinvestor").value,
-            ef_casa:      document.getElementById("ef_casa").value,
+            ef_myinvestor:    document.getElementById("ef_myinvestor").value,
+            ef_traderepublic: document.getElementById("ef_traderepublic").value,
+            ef_casa:          document.getElementById("ef_casa").value,
             ts:           document.getElementById("fondosTimestamp").innerText
         };
         this._save("isukiza_v4_enc", data);
@@ -302,8 +280,9 @@ const Storage = {
         setVal("ef_abanca",   d.ef_abanca);
         setVal("ef_santander",d.ef_santander);
         setVal("ef_kutxa",    d.ef_kutxa);
-        setVal("ef_myinvestor",d.ef_myinvestor);
-        setVal("ef_casa",     d.ef_casa);
+        setVal("ef_myinvestor",    d.ef_myinvestor);
+        setVal("ef_traderepublic", d.ef_traderepublic);
+        setVal("ef_casa",          d.ef_casa);
         setVal("p1",          d.p1  || "1376.6933");
         setVal("p2",          d.p2  || "1975.6095");
         setVal("vlp",         d.vlp);
@@ -321,38 +300,19 @@ const Storage = {
 // ══════════════════════════════════════════════════
 const Finance = {
     async fetchPrice(ticker) {
-        // Intentar Yahoo Finance directamente primero (sin proxy)
-        const directUrls = [
-            `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`,
-            `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`,
-        ];
-        for (const url of directUrls) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
-                const response = await fetch(url, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (!response.ok) continue;
-                const data = await response.json();
-                const result = this.extractPrice(data);
-                if (result && result.price > 0) return result;
-            } catch (e) { /* intentar siguiente */ }
-        }
-        // Si falla, intentar con proxies
         const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
         for (let i = 0; i < Config.PROXIES.length; i++) {
             try {
                 const proxyUrl = Config.PROXIES[i](yahooUrl);
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
                 const response = await fetch(proxyUrl, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
-                const result = this.extractPrice(data);
-                if (result && result.price > 0) return result;
-            } catch (e) {
-                console.warn(`Proxy ${i} falló para ${ticker}:`, e.message);
+                return this.extractPrice(data);
+            } catch (e) { 
+                console.warn(`Proxy ${i} falló para ${ticker}:`, e.message); 
             }
         }
         throw new Error(`Fallo total para ${ticker}`);
@@ -565,12 +525,11 @@ const UI = {
     // ── Efectivo ──
     updateEfectivoDOM() {
         const campos = [
-            { id: "ef_abanca",        label: "Abanca"         },
-            { id: "ef_santander",     label: "Santander"      },
-            { id: "ef_kutxa",         label: "Kutxabank"      },
-            { id: "ef_myinvestor",    label: "MyInvestor"     },
-            { id: "ef_traderepublic", label: "Trade Republic" },
-            { id: "ef_casa",          label: "Casa"           }
+            { id: "ef_abanca",     label: "Abanca"     },
+            { id: "ef_santander",  label: "Santander"  },
+            { id: "ef_kutxa",      label: "Kutxabank"  },
+            { id: "ef_myinvestor", label: "MyInvestor" },
+            { id: "ef_casa",       label: "Casa"       }
         ];
         let total = 0;
         const filas = [];
@@ -593,7 +552,7 @@ const UI = {
             return;
         }
         let totalBolsaInv = 0, totalBolsaMer = 0;
-        const items = State.acciones.map((a, idx) => {
+        list.innerHTML = State.acciones.map((a, idx) => {
             const price     = State.precios[a.ticker] || 0;
             const changePct = State.cambios[a.ticker] || 0;
             const sub       = price * a.cant;
@@ -623,8 +582,6 @@ const UI = {
                     ${dayStr}
                 </div>` : "";
 
-            // Peso de esta acción sobre el total de bolsa (se calcula después del bucle)
-            // Lo guardamos para usarlo en el HTML
             const rentHTML = invEur > 0 ? `
                 <div class="flex justify-between items-center bg-slate-800/50 rounded-lg px-3 py-1 mt-2">
                     <span class="mono text-[11px] text-slate-500">Rentabilidad</span>
@@ -632,10 +589,10 @@ const UI = {
                         ${esG ? "+" : ""}${this.fmt(gan)} € (${esG ? "+" : ""}${ganPct.toFixed(2)}%)
                     </span>
                 </div>` : "";
-            return { subEur, invEur, html: `
+            return `
                 <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-800 hover:border-blue-700/40 transition-all">
                     <div class="flex justify-between items-center">
-                        <div class="flex-1 min-w-0">
+                        <div>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <a href="https://finance.yahoo.com/quote/${a.ticker}" target="_blank" class="font-bold text-slate-200 hover:text-blue-400 text-sm">
                                     ${a.nombre} <span class="text-blue-500 text-[9px]">&#8599;</span>
@@ -643,9 +600,8 @@ const UI = {
                                 ${badgeHTML}
                             </div>
                             <p class="mono text-[9px] text-slate-500 mt-0.5">${a.cant} uds · ${price.toFixed(2)} ${a.mon}</p>
-                            <div class="peso-bar-placeholder mt-1" data-valor="${subEur.toFixed(2)}"></div>
                         </div>
-                        <div class="flex items-center gap-2 ml-3">
+                        <div class="flex items-center gap-2">
                             <div class="text-right">
                                 <p class="mono text-base font-bold text-blue-300">${this.fmt(subEur)} &euro;</p>
                                 ${a.mon === "USD" ? `<p class="mono text-[8px] text-slate-600">${this.fmt(sub)} ${a.mon}</p>` : ""}
@@ -654,31 +610,8 @@ const UI = {
                         </div>
                     </div>
                     ${rentHTML}
-                </div>`};
-        });
-
-        // Calcular totales reales para las barras de peso
-        const totalBolsaReal = items.reduce((s, i) => s + (i.subEur || 0), 0);
-        
-        // Construir HTML con barras de peso
-        list.innerHTML = items.map(item => {
-            const pesoPct = totalBolsaReal > 0 ? (item.subEur / totalBolsaReal * 100) : 0;
-            const pesoStr = pesoPct.toFixed(1);
-            // Sustituir placeholder por la barra real
-            return item.html.replace(
-                '<div class="peso-bar-placeholder mt-1" data-valor="' + item.subEur.toFixed(2) + '"></div>',
-                `<div class="flex items-center gap-2 mt-1">
-                    <div style="flex:1;height:3px;background:#1e293b;border-radius:2px;overflow:hidden;">
-                        <div style="height:100%;width:${pesoPct}%;background:#3b82f6;border-radius:2px;opacity:0.7;transition:width 0.4s;"></div>
-                    </div>
-                    <span class="mono" style="font-size:9px;color:#3b82f6;font-weight:700;flex-shrink:0;">${pesoStr}%</span>
-                </div>`
-            );
+                </div>`;
         }).join("");
-
-        // Restaurar totales
-        totalBolsaMer = totalBolsaReal;
-        totalBolsaInv = items.reduce((s, i) => s + i.invEur, 0);
 
         const ganT = totalBolsaMer - totalBolsaInv;
         const esGT = ganT >= 0;
@@ -712,6 +645,7 @@ const UI = {
     cerrarModal() { document.getElementById("modalBolsa").classList.remove("open"); },
 
     refreshCharts() {
+        Charts.drawHeaderDonut();
         Charts.drawTreemap();
         Charts.drawSparkline("spark-fondos", "fondos",   Config.COLORES.fondos,    "tip-fondos");
         Charts.drawSparkline("spark-indie",  "indie",    Config.COLORES.indie,     "tip-indie");
@@ -1042,6 +976,8 @@ const App = {
             setInterval(() => Finance.updateAllPrices(), 5 * 60 * 1000);
             window.addEventListener("resize", () => UI.refreshCharts());
             document.addEventListener("click", e => { if (e.target.id === "modalBolsa") UI.cerrarModal(); });
+            Cloud._updateSyncBadge();
+            setTimeout(() => Cloud.autoSync(), 1500);
         }, 50);
     },
 
@@ -1057,7 +993,7 @@ const App = {
         const vlp      = parseFloat(document.getElementById("vlp").value) || 0;
         const epsv     = ((parseFloat(document.getElementById("p1").value) || 0)
                        +  (parseFloat(document.getElementById("p2").value) || 0)) * vlp;
-        const efectivo = ["ef_abanca", "ef_santander", "ef_kutxa", "ef_myinvestor", "ef_traderepublic", "ef_casa"]
+        const efectivo = ["ef_abanca", "ef_santander", "ef_kutxa", "ef_myinvestor", "ef_casa"]
                           .reduce((acc, id) => acc + (parseFloat(document.getElementById(id).value) || 0), 0);
         return { bolsa, fondos: f.tMer, indie, epsv, efectivo, total: bolsa + f.tMer + indie + epsv + efectivo };
     },
@@ -1197,21 +1133,33 @@ const App = {
                 State.historial = processHistorial(data);
                 Storage.saveHistorial();
                 UI.showToast("✓ Historial importado");
-            } else {
-                if (data.acciones) State.acciones = data.acciones;
+            } else if (data._version === 2) {
+                if (data.acciones)  State.acciones  = data.acciones;
                 if (data.historial) State.historial = processHistorial(data.historial);
-                const keys = ["f1_vl","f1_part","f1_coste","f2_vl","f2_part","f2_coste","indie_mer","indie_inv","indie_ef","p1","p2","vlp","ef_abanca","ef_santander","ef_kutxa","ef_myinvestor","ef_casa"];
+                const keys = ["f1_vl","f1_part","f1_coste","f2_vl","f2_part","f2_coste",
+                              "indie_mer","indie_inv","indie_ef","p1","p2","vlp",
+                              "ef_abanca","ef_santander","ef_kutxa","ef_myinvestor","ef_traderepublic","ef_casa"];
+                keys.forEach(k => {
+                    if (data[k] !== undefined && data[k] !== null) {
+                        const el = document.getElementById(k);
+                        if (el) el.value = data[k];
+                    }
+                });
+                const vlpVal = data.vlp;
+                if (vlpVal) { const vlp_m = document.getElementById("vlp_m"); if (vlp_m) vlp_m.value = vlpVal; }
+                Storage.saveData(); Storage.saveHistorial(); Storage.saveAcciones();
+                const fecha = new Date(data._fecha).toLocaleDateString("es-ES");
+                UI.showToast(`✓ Backup completo importado (${fecha})`);
+            } else {
+                if (data.acciones)  State.acciones  = data.acciones;
+                if (data.historial) State.historial = processHistorial(data.historial);
+                const keys = ["f1_vl","f1_part","f1_coste","f2_vl","f2_part","f2_coste",
+                              "indie_mer","indie_inv","indie_ef","p1","p2","vlp",
+                              "ef_abanca","ef_santander","ef_kutxa","ef_myinvestor","ef_traderepublic","ef_casa"];
                 keys.forEach(k => { if (data[k] !== undefined) { const el = document.getElementById(k); if (el) el.value = data[k]; } });
                 Storage.saveData(); Storage.saveHistorial(); Storage.saveAcciones();
                 UI.showToast("✓ Configuración importada");
             }
-            // Recargar todos los campos del DOM desde localStorage y recalcular
-            Storage.loadAll();
-            UI.updateEfectivoDOM();
-            UI.updateFondoDOM("f1");
-            UI.updateFondoDOM("f2");
-            UI.updateIndieDOM();
-            UI.updateEPSVDOM();
             this.calculateAll(); UI.renderBolsa(); UI.refreshCharts();
             const imp = document.getElementById("importFile");
             if (imp) imp.value = "";
@@ -1219,14 +1167,27 @@ const App = {
     },
 
     exportarHistorial() {
-        const blob = new Blob([JSON.stringify(State.historial, null, 2)], { type: "application/json" });
+        const d = Storage._load("isukiza_v4_enc") || {};
+        const exportData = {
+            _version: 2, _fecha: new Date().toISOString(),
+            _device: navigator.userAgent.includes("Mobile") ? "móvil" : "escritorio",
+            historial: State.historial, acciones: State.acciones,
+            f1_vl: d.f1_vl, f1_part: d.f1_part, f1_coste: d.f1_coste,
+            f2_vl: d.f2_vl, f2_part: d.f2_part, f2_coste: d.f2_coste,
+            indie_mer: d.indie_mer, indie_inv: d.indie_inv, indie_ef: d.indie_ef,
+            p1: d.p1, p2: d.p2, vlp: d.vlp,
+            ef_abanca: d.ef_abanca, ef_santander: d.ef_santander,
+            ef_kutxa: d.ef_kutxa, ef_myinvestor: d.ef_myinvestor,
+            ef_traderepublic: d.ef_traderepublic, ef_casa: d.ef_casa
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement("a");
         a.href = url;
-        a.download = `isukiza_historial_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `isukiza_backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        UI.showToast("↓ Historial exportado");
+        UI.showToast("↓ Backup completo exportado");
     },
 
     borrarHistorial() {
