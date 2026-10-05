@@ -12,13 +12,13 @@ const Config = {
         { ticker: "OHLA.MC", nombre: "OHLA",      cant: 300,  mon: "EUR", coste: 0, inv: 0 }
     ],
     CARDS: {
-        bolsa:     { body: "body-bolsa",     card: "card-bolsa"    },
-        fondos:    { body: "body-fondos",    card: "card-fondos"   },
-        indie:     { body: "body-indie",     card: "card-indie"    },
-        efectivo:  { body: "body-efectivo",  card: "card-efectivo" },
-        epsv:      { body: "body-epsv",      card: "card-epsv"     },
-        treemap:   { body: "body-treemap",   card: "card-treemap"  },
-        evolucion: { body: "body-evolucion", card: "card-total"    }
+        bolsa:     { body: "body-bolsa",     card: "card-bolsa"     },
+        fondos:    { body: "body-fondos",    card: "card-fondos"    },
+        indie:     { body: "body-indie",     card: "card-indie"     },
+        efectivo:  { body: "body-efectivo",  card: "card-efectivo"  },
+        epsv:      { body: "body-epsv",      card: "card-epsv"      },
+        treemap:   { body: "body-treemap",   card: "card-treemap"   },
+        evolucion: { body: "body-evolucion", card: "card-total"     }
     },
     COLORES: {
         total: "#4ade80", efectivo: "#22d3ee", fondos: "#a78bfa",
@@ -32,9 +32,9 @@ const Config = {
         { key: 'efectivo', label: 'Efectivo', color: '#06b6d4' }
     ],
     PROXIES: [
-        url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+        url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
         url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-        url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+        url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
     ]
 };
 
@@ -130,7 +130,7 @@ const Cloud = {
             const jsonStr = decodeURIComponent(escape(atob(d.content)));
             App.importarJSON(jsonStr);
             UI.setStatus("✓ Datos cargados desde nube", "green");
-            UI.showToast("☁️️ Datos sincronizados desde la nube");
+            UI.showToast("☁ Datos sincronizados desde la nube");
             localStorage.setItem("isukiza_last_sync", new Date().toISOString());
             localStorage.setItem("isukiza_last_loaded", new Date().toISOString());
             this._updateSyncBadge();
@@ -303,7 +303,7 @@ const Storage = {
 // ══════════════════════════════════════════════════
 const Finance = {
     async fetchPrice(ticker) {
-        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
+        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
         for (let i = 0; i < Config.PROXIES.length; i++) {
             try {
                 const proxyUrl = Config.PROXIES[i](yahooUrl);
@@ -322,7 +322,7 @@ const Finance = {
     },
     extractPrice(data) {
         try {
-            let contents = data.contents ? JSON.parse(data.contents) : data;
+            let contents = data.contents ? (typeof data.contents === 'string' ? JSON.parse(data.contents) : data.contents) : data;
             if (!contents.chart || !contents.chart.result || !contents.chart.result[0]) {
                 throw new Error('Estructura de datos inválida');
             }
@@ -584,7 +584,6 @@ const UI = {
         let totalBolsaInv = 0, totalBolsaMer = 0;
         list.innerHTML = State.acciones.map((a, idx) => {
             const price     = State.precios[a.ticker] || 0;
-            const changePct = State.cambios[a.ticker] || 0;
             const sub       = price * a.cant;
             const subEur    = a.mon === "USD" ? sub * State.usd_eur : sub;
             const invRaw    = parseFloat(a.inv) || (parseFloat(a.coste) * a.cant) || 0;
@@ -659,25 +658,260 @@ const UI = {
     // ── Modal ──
     abrirModal(idx) {
         State._modalEditIdx = idx;
-        const a = idx === -1 ? { nombre: "", ticker: "", mon: "EUR", cant: "", coste: "", inv: "" } : State.acciones[idx];
-        const titleEl = document.getElementById("modalTitle");
-        if (titleEl) titleEl.innerText = idx === -1 ? "Añadir valor" : `Editar: ${a.nombre}`;
+        const a = idx === -1 ? { nombre: "", ticker: "", cant: "", mon: "EUR", coste: "", inv: "" } : State.acciones[idx];
+        const modal = document.getElementById("modalAccion");
+        if (!modal) return;
+        document.getElementById("m_nombre").value = a.nombre || "";
+        document.getElementById("m_ticker").value = a.ticker || "";
+        document.getElementById("m_cant").value   = a.cant   || "";
+        document.getElementById("m_mon").value    = a.mon    || "EUR";
+        document.getElementById("m_coste").value  = a.coste  || "";
+        document.getElementById("m_inv").value    = a.inv    || "";
         
-        const setM = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-        setM("m_nombre", a.nombre);
-        setM("m_ticker", a.ticker);
-        setM("m_mon",    a.mon);
-        setM("m_cant",   a.cant);
-        setM("m_coste",  a.coste);
-        setM("m_inv",    a.inv);
-        
-        const delBtn = document.getElementById("m_eliminar");
-        if (delBtn) delBtn.style.display = idx === -1 ? "none" : "block";
-        const modal = document.getElementById("modalBolsa");
-        if (modal) modal.classList.add("open");
+        const btnDelete = document.getElementById("btnDeleteAccion");
+        if (btnDelete) btnDelete.style.display = idx === -1 ? "none" : "block";
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
     },
-    cerrarModal() { 
-        const modal = document.getElementById("modalBolsa");
-        if (modal) modal.classList.remove("open");
+    cerrarModal() {
+        const modal = document.getElementById("modalAccion");
+        if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); }
+    },
+    guardarAccion() {
+        const nombre = document.getElementById("m_nombre").value.trim();
+        const ticker = document.getElementById("m_ticker").value.trim().toUpperCase();
+        const cant   = parseFloat(document.getElementById("m_cant").value) || 0;
+        const mon    = document.getElementById("m_mon").value;
+        const coste  = parseFloat(document.getElementById("m_coste").value) || 0;
+        const inv    = parseFloat(document.getElementById("m_inv").value) || 0;
+
+        if (!nombre || !ticker || cant <= 0) {
+            alert("Completa el nombre, ticker y número de acciones.");
+            return;
+        }
+
+        const obj = { nombre, ticker, cant, mon, coste, inv };
+        if (State._modalEditIdx === -1) {
+            State.acciones.push(obj);
+        } else {
+            State.acciones[State._modalEditIdx] = obj;
+        }
+
+        Storage.saveAcciones();
+        this.cerrarModal();
+        Finance.updateAllPrices();
+    },
+    eliminarAccion() {
+        if (State._modalEditIdx >= 0 && confirm("¿Seguro que deseas eliminar este valor?")) {
+            State.acciones.splice(State._modalEditIdx, 1);
+            Storage.saveAcciones();
+            this.cerrarModal();
+            this.renderBolsa();
+            App.calculateAll();
+        }
+    },
+
+    // ── Treemap & Historial ──
+    renderTreemap(v) {
+        const container = document.getElementById("treemapContainer");
+        if (!container || !v || v.total <= 0) return;
+        
+        container.innerHTML = Config.TREEMAP_CATS.map(cat => {
+            const val = v[cat.key] || 0;
+            const pct = (val / v.total * 100).toFixed(1);
+            if (pct <= 0) return "";
+            return `
+                <div style="flex-grow: ${pct}; background-color: ${cat.color};" class="h-12 rounded-lg flex flex-col justify-center items-center text-white p-1 transition-all">
+                    <span class="text-[10px] font-bold leading-none">${cat.label}</span>
+                    <span class="text-[9px] opacity-90 leading-none mt-1">${pct}%</span>
+                </div>`;
+        }).join("");
+    },
+    renderHistorial() {
+        const list = document.getElementById("listaHistorial");
+        if (!list) return;
+        if (!State.historial.length) {
+            list.innerHTML = '<p class="mono text-[9px] text-slate-600 text-center py-4">Sin snapshots guardados.</p>';
+            return;
+        }
+        list.innerHTML = State.historial.slice().reverse().map((item, idx) => {
+            const actualIdx = State.historial.length - 1 - idx;
+            const d = new Date(item.fecha);
+            const dateStr = d.toLocaleDateString("es-ES") + " " + d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+            return `
+                <div class="flex justify-between items-center bg-slate-900/30 p-2 rounded border border-slate-800 text-xs">
+                    <div>
+                        <p class="mono text-slate-300 font-bold">${this.fmt(item.total)} €</p>
+                        <p class="mono text-[9px] text-slate-500">${dateStr}</p>
+                    </div>
+                    <button onclick="App.eliminarSnapshot(${actualIdx})" class="text-slate-600 hover:text-red-400 p-1">🗑️</button>
+                </div>`;
+        }).join("");
     }
 };
+
+// ══════════════════════════════════════════════════
+// 7. MÓDULO PRINCIPAL DE APLICACIÓN (App)
+// ══════════════════════════════════════════════════
+const App = {
+    init() {
+        console.log("[Isukiza] Inicializando aplicación...");
+        State.masterKey = prompt("Introduce tu clave de cifrado:") || "default_key";
+        
+        Storage.loadAll();
+        
+        // Cargar estado de colapso de UI
+        Object.keys(Config.CARDS).forEach(id => UI.applyCollapse(id));
+        UI.updateGlobalBtn();
+
+        this.calculateAll();
+        Finance.updateAllPrices();
+        Cloud.autoSync();
+    },
+
+    getFondosTotals() {
+        const f1_part = parseFloat(document.getElementById("f1_part")?.value) || 0;
+        const f1_coste = parseFloat(document.getElementById("f1_coste")?.value) || 0;
+        const f1_vl = parseFloat(document.getElementById("f1_vl")?.value) || 0;
+
+        const f2_part = parseFloat(document.getElementById("f2_part")?.value) || 0;
+        const f2_coste = parseFloat(document.getElementById("f2_coste")?.value) || 0;
+        const f2_vl = parseFloat(document.getElementById("f2_vl")?.value) || 0;
+
+        const tInv = (f1_part * f1_coste) + (f2_part * f2_coste);
+        const tMer = (f1_part * f1_vl) + (f2_part * f2_vl);
+        return { tInv, tMer };
+    },
+
+    getValues() {
+        // Bolsa
+        let bolsa = 0;
+        State.acciones.forEach(a => {
+            const price = State.precios[a.ticker] || 0;
+            const sub = price * a.cant;
+            bolsa += a.mon === "USD" ? sub * State.usd_eur : sub;
+        });
+
+        // Fondos
+        const fondos = this.getFondosTotals().tMer;
+
+        // Indie
+        const indie_mer = parseFloat(document.getElementById("indie_mer")?.value) || 0;
+        const indie_ef  = parseFloat(document.getElementById("indie_ef")?.value)  || 0;
+        const indie     = indie_mer + indie_ef;
+
+        // EPSV
+        const vlp = parseFloat(document.getElementById("vlp")?.value) || 0;
+        const p1  = parseFloat(document.getElementById("p1")?.value) || 0;
+        const p2  = parseFloat(document.getElementById("p2")?.value) || 0;
+        const epsv = (p1 + p2) * vlp;
+
+        // Efectivo
+        const ef_abanca        = parseFloat(document.getElementById("ef_abanca")?.value)        || 0;
+        const ef_santander     = parseFloat(document.getElementById("ef_santander")?.value)     || 0;
+        const ef_kutxa         = parseFloat(document.getElementById("ef_kutxa")?.value)         || 0;
+        const ef_myinvestor    = parseFloat(document.getElementById("ef_myinvestor")?.value)    || 0;
+        const ef_traderepublic = parseFloat(document.getElementById("ef_traderepublic")?.value) || 0;
+        const ef_casa          = parseFloat(document.getElementById("ef_casa")?.value)          || 0;
+        const efectivo = ef_abanca + ef_santander + ef_kutxa + ef_myinvestor + ef_traderepublic + ef_casa;
+
+        const total = bolsa + fondos + indie + epsv + efectivo;
+
+        return { bolsa, fondos, indie, epsv, efectivo, total };
+    },
+
+    calculateAll() {
+        UI.updateFondoDOM("f1");
+        UI.updateFondoDOM("f2");
+        UI.updateTotalFondosDOM();
+        UI.updateIndieDOM();
+        UI.updateEPSVDOM();
+        UI.updateEfectivoDOM();
+
+        const v = this.getValues();
+
+        const totalEl = document.getElementById("patrimonioTotal");
+        if (totalEl) totalEl.innerText = UI.fmt(v.total) + " €";
+
+        UI.renderTreemap(v);
+        UI.renderHistorial();
+        Storage.saveData();
+
+        // Actualizar resúmenes colapsados
+        Object.keys(Config.CARDS).forEach(id => {
+            if (State.colapsado[id]) UI.updateSummary(id);
+        });
+    },
+
+    tomarSnapshot() {
+        const v = this.getValues();
+        if (v.total <= 0) return;
+
+        const snap = { fecha: new Date().toISOString(), total: v.total, desglose: v };
+        State.historial.push(snap);
+        Storage.saveHistorial();
+        UI.renderHistorial();
+        UI.showToast("📸 Snapshot guardado");
+        Cloud.guardar();
+    },
+
+    eliminarSnapshot(idx) {
+        if (confirm("¿Eliminar este registro del historial?")) {
+            State.historial.splice(idx, 1);
+            Storage.saveHistorial();
+            UI.renderHistorial();
+            Cloud.guardar();
+        }
+    },
+
+    importarJSON(jsonStr) {
+        try {
+            const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+            if (data.acciones) State.acciones = data.acciones;
+            if (data.historial) State.historial = data.historial;
+            
+            Storage.saveAcciones();
+            Storage.saveHistorial();
+
+            const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+            setVal("f1_vl",            data.f1_vl);
+            setVal("f1_part",          data.f1_part);
+            setVal("f1_coste",         data.f1_coste);
+            setVal("f2_vl",            data.f2_vl);
+            setVal("f2_part",          data.f2_part);
+            setVal("f2_coste",         data.f2_coste);
+            setVal("indie_mer",        data.indie_mer);
+            setVal("indie_inv",        data.indie_inv);
+            setVal("indie_ef",         data.indie_ef);
+            setVal("p1",               data.p1);
+            setVal("p2",               data.p2);
+            setVal("vlp",              data.vlp);
+            setVal("ef_abanca",        data.ef_abanca);
+            setVal("ef_santander",     data.ef_santander);
+            setVal("ef_kutxa",         data.ef_kutxa);
+            setVal("ef_myinvestor",    data.ef_myinvestor);
+            setVal("ef_traderepublic", data.ef_traderepublic);
+            setVal("ef_casa",          data.ef_casa);
+
+            Storage.saveData();
+            this.calculateAll();
+            Finance.updateAllPrices();
+        } catch(e) {
+            console.error("[Isukiza] Error al importar JSON:", e);
+            alert("El formato JSON de importación no es válido.");
+        }
+    }
+};
+
+// Exponer modulos globalmente
+window.State = State;
+window.UI = UI;
+window.Finance = Finance;
+window.Cloud = Cloud;
+window.Storage = Storage;
+window.App = App;
+
+// Inicialización en DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
+    App.init();
+});
